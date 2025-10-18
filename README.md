@@ -55,6 +55,7 @@ send_button.pack(pady=10)
 # Run the main loop
 root.mainloop()
 
+#### ARDUINO CODE
 #include <Arduino.h>
 
 // Define the pins connected to LEDs or solenoids
