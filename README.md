@@ -55,7 +55,7 @@ send_button.pack(pady=10)
 # Run the main loop
 root.mainloop()
 
-### ⚡ Arduino Code – `braille_arduino.ino`
+**### ⚡ Arduino Code – `braille_arduino.ino`**
 ```cpp
 // Your full Arduino code goes here
 #include <Arduino.h>
