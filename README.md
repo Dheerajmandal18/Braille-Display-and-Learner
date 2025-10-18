@@ -55,13 +55,13 @@ send_button.pack(pady=10)
 # Run the main loop
 root.mainloop()
 
-#### ARDUINO CODE
+### ⚡ Arduino Code – `braille_arduino.ino`
+```cpp
+// Your full Arduino code goes here
 #include <Arduino.h>
 
-// Define the pins connected to LEDs or solenoids
 const int ledPins[] = {2, 4, 7, 8, 12, 13};
 
-// Define Braille patterns for A–Z (1 = raised dot, 0 = no dot)
 const bool brailleAlphabet[26][6] = {
   {1, 0, 0, 0, 0, 0}, // a
   {1, 1, 0, 0, 0, 0}, // b
@@ -92,7 +92,6 @@ const bool brailleAlphabet[26][6] = {
 };
 
 void setup() {
-  // Set all LED pins as output
   for (int i = 0; i < 6; i++) {
     pinMode(ledPins[i], OUTPUT);
   }
@@ -101,21 +100,17 @@ void setup() {
 
 void loop() {
   if (Serial.available()) {
-    char c = tolower(Serial.read());  // Read the character
+    char c = tolower(Serial.read());
     if (c >= 'a' && c <= 'z') {
       const bool* braillePattern = brailleAlphabet[c - 'a'];
-      
-      // Display Braille pattern
       for (int i = 0; i < 6; i++) {
         digitalWrite(ledPins[i], braillePattern[i] ? HIGH : LOW);
       }
-      
-      delay(1500); // Keep dots visible for 1.5 seconds
-      
-      // Reset display
+      delay(1000);
       for (int i = 0; i < 6; i++) {
         digitalWrite(ledPins[i], LOW);
       }
+      delay(1000);
     }
   }
 }
