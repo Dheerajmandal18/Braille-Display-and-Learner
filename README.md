@@ -1,122 +1,227 @@
-# ♿ Braille Display and Learner
+# ⠃ Braille Learner Device
 
-## 📘 Overview
-This project presents a **low-cost refreshable Braille display** system designed to assist visually impaired individuals in reading digital text.  
-The system uses **Arduino** to control solenoids representing Braille dots, while a **Python Tkinter GUI** sends English characters to be displayed in Braille.  
-It aims to create an **affordable, portable, and interactive** solution to help visually impaired learners understand Braille characters digitally.
+An assistive technology project that helps visually impaired users **learn and practice Braille** using physical solenoid actuators controlled by an Arduino, paired with a Python desktop application for real-time feedback.
 
 ---
 
-## ⚙️ System Components
-1. **Python GUI (Tkinter):**
-   - Takes English character input.
-   - Sends the character to Arduino through Serial Communication (USB or Bluetooth).
-2. **Arduino Controller:**
-   - Receives character from Python.
-   - Looks up the Braille dot pattern for that letter.
-   - Activates the corresponding solenoids (or LEDs for prototype testing).
-3. **Braille Display:**
-   - Uses 6 solenoids to represent one Braille character at a time.
-   - Each solenoid corresponds to one of the six Braille dots.
+## 📸 Project Overview
+
+The device uses **6 solenoids** arranged in the standard Braille cell layout (2 columns × 3 rows) to physically raise and lower pins, mimicking real Braille dots. Users can:
+
+- **Feel** Braille characters produced by the solenoids (Display Mode)
+- **Input** Braille characters using 6 push buttons mapped to dots 1–6 (Keyboard Mode)
+- **See** the typed characters appear on a live Python PyQt5 dashboard
+- **Hear** characters spoken aloud via Text-to-Speech (TTS)
 
 ---
 
-## 💻 Code Files
+## 🛠️ Hardware Components
 
-### 🐍 Python GUI Code – `braille_gui.py`
+| Component | Quantity | Purpose |
+|---|---|---|
+| Arduino Uno | 1 | Microcontroller |
+| Solenoids (5V/12V push-pull) | 6 | Actuate Braille dots 1–6 |
+| MOSFET (e.g. IRF540N) | 6 | Switch solenoids from Arduino signal |
+| Flyback Diode (1N4007) | 6 | Protect MOSFETs from back-EMF |
+| Resistor 330Ω | 6 | Gate resistors for MOSFETs |
+| Push Buttons | 6 | Braille keyboard input (dots 1–6) |
+| Toggle Switch | 2 | Mode switch (Display/Keyboard) & Type switch (Alphabet/Number) |
+| 24V DC Power Supply | 1 | Power solenoids |
+| Breadboard + Jumper Wires | — | Prototyping |
+| USB Cable | 1 | Arduino ↔ Laptop serial communication |
+
+---
+
+## 🔌 Circuit Design
+
+```
+Arduino Pin 2–7  →  330Ω Resistor  →  MOSFET Gate
+                                        |
+                                    MOSFET Drain  →  Solenoid (–)
+                                        |
+                                    MOSFET Source  →  GND
+
+24V Supply (+)  →  Solenoid (+)
+Flyback Diode   →  across each Solenoid (cathode to +24V rail)
+
+Arduino A0–A5  →  Push Buttons (INPUT_PULLUP, other end to GND)
+Arduino Pin 9   →  Character Type Switch (Alphabet / Number)
+Arduino Pin 10  →  Mode Switch (Display / Keyboard)
+```
+
+> ⚠️ **Important:** The 24V solenoid circuit shares GND with the Arduino but the solenoids are powered separately. Never connect 24V directly to Arduino pins.
+
+---
+
+## 🧩 Braille Cell Layout
+
+```
+Dot Layout (standard Braille):
+
+  [1] [4]
+  [2] [5]
+  [3] [6]
+
+Button → Solenoid mapping:
+  Button on A0 → Dot 1 → Solenoid on Pin 2
+  Button on A1 → Dot 2 → Solenoid on Pin 3
+  Button on A2 → Dot 3 → Solenoid on Pin 4
+  Button on A3 → Dot 4 → Solenoid on Pin 5
+  Button on A4 → Dot 5 → Solenoid on Pin 6
+  Button on A5 → Dot 6 → Solenoid on Pin 7
+```
+
+---
+
+## ⚙️ Operating Modes
+
+### 🔵 Display Mode (`modeSwitch = LOW`)
+- Arduino listens for characters sent from the Python app via serial
+- On receiving a character, it fires the corresponding solenoids to form the Braille cell
+- Solenoids stay active for 1 second, then reset
+
+### 🟢 Keyboard Mode (`modeSwitch = HIGH`)
+- User presses combinations of 6 buttons simultaneously
+- Arduino decodes the bit pattern and maps it to a letter (A–Z) or digit (0–9)
+- The decoded character is sent back to the Python app via serial
+
+### Character Type Switch
+- `LOW` → Alphabet mode (A–Z)
+- `HIGH` → Number mode (0–9)
+
+---
+
+## 💻 Software
+
+### Arduino (`main.ino`)
+- Written in C++ using the Arduino framework
+- Handles both Display Mode (solenoid actuation) and Keyboard Mode (button reading)
+- Communicates with Python app at **9600 baud** over USB serial
+
+**Key functions:**
+
+| Function | Description |
+|---|---|
+| `readBrailleButtons()` | Reads 6-bit pattern from buttons |
+| `handleAlphabetInput()` | Matches bit pattern to A–Z |
+| `handleNumberInput()` | Matches bit pattern to 0–9 |
+| `updateSolenoids()` | Activates solenoids per Braille pattern |
+| `resetSolenoids()` | Turns all solenoids off |
+
+---
+
+### Python App (`braille_app.py`)
+
+Built with **PyQt5** for the GUI, with:
+- `pyserial` — serial communication with Arduino
+- `pyttsx3` — offline Text-to-Speech
+- `pygame` — sound feedback on send/receive
+
+**Features:**
+- Live serial monitor with timestamps
+- Send text to Arduino (triggers Display Mode)
+- Mode indicator (Keyboard 🟢 / Display 🔵)
+- Toggle: TTS, sound effects, auto file logging
+- Clear log button
+
+---
+
+## 🚀 Getting Started
+
+### 1. Flash Arduino
+Open `arduino/main.ino` in Arduino IDE and upload to your board.
+
+### 2. Install Python Dependencies
+```bash
+pip install pyserial pyqt5 pyttsx3 pygame
+```
+
+### 3. Set Your COM Port
+In `braille_app.py`, update:
 ```python
-import tkinter as tk
-import serial
+PORT = 'COM3'   # Windows example
+# PORT = '/dev/ttyUSB0'  # Linux/Mac example
+```
 
-# Create a serial connection with the Arduino Uno
-# Replace 'COM11' with the port your Arduino is connected to
-ser = serial.Serial('COM11', 9600)
+### 4. Run the App
+```bash
+python braille_app.py
+```
 
-# Function to send English character to Arduino
-def send_character():
-    english_char = entry.get().upper()  # Convert to uppercase
-    if english_char:
-        ser.write(english_char.encode())
+### 5. Optional: Sound Files
+Place `sent.wav` and `received.wav` in the same directory as `braille_app.py` for audio feedback.
 
-# Create the main window
-root = tk.Tk()
-root.title("Braille Character Sender")
+---
 
-# Create GUI components
-label = tk.Label(root, text="Enter English Character:")
-label.pack(pady=5)
+## 📁 Repository Structure
 
-entry = tk.Entry(root, width=10)
-entry.pack(pady=5)
+```
+braille-learner/
+│
+├── arduino/
+│   └── main.ino              # Arduino firmware
+│
+├── python/
+│   └── braille_app.py        # PyQt5 desktop application
+│
+├── docs/
+│   └── circuit_diagram.png   # Wiring diagram (add yours here)
+│
+├── media/
+│   └── (project photos)
+│
+└── README.md
+```
 
-send_button = tk.Button(root, text="Send to Arduino", command=send_character)
-send_button.pack(pady=10)
+---
 
-# Run the main loop
-root.mainloop()
+## 📋 Braille Reference
 
+### Alphabet (Dots 1–6)
 
+```
+A: ●○  B: ●○  C: ●●  D: ●●  E: ●○
+   ○○     ●○     ○○     ○●     ○●
+   ○○     ○○     ○○     ○○     ○○
+```
 
+Full standard Grade 1 Braille mapping is implemented in the Arduino firmware for A–Z and 0–9.
 
-### ⚡ Arduino Code – `braille_arduino.ino`
-```cpp
-// Your full Arduino code goes here
-#include <Arduino.h>
+---
 
-const int ledPins[] = {2, 4, 7, 8, 12, 13};
+## 🔧 Known Issues / Future Improvements
 
-const bool brailleAlphabet[26][6] = {
-  {1, 0, 0, 0, 0, 0}, // a
-  {1, 1, 0, 0, 0, 0}, // b
-  {1, 0, 0, 1, 0, 0}, // c
-  {1, 0, 0, 1, 1, 0}, // d
-  {1, 0, 0, 0, 1, 0}, // e
-  {1, 1, 0, 1, 0, 0}, // f
-  {1, 1, 0, 1, 1, 0}, // g
-  {1, 1, 0, 0, 1, 0}, // h
-  {0, 1, 0, 1, 0, 0}, // i
-  {0, 1, 0, 1, 1, 0}, // j
-  {1, 0, 1, 0, 0, 0}, // k
-  {1, 1, 1, 0, 0, 0}, // l
-  {1, 0, 1, 1, 0, 0}, // m
-  {1, 0, 1, 1, 1, 0}, // n
-  {1, 0, 1, 0, 1, 0}, // o
-  {1, 1, 1, 1, 0, 0}, // p
-  {1, 1, 1, 1, 1, 0}, // q
-  {1, 1, 1, 0, 1, 0}, // r
-  {0, 1, 1, 1, 0, 0}, // s
-  {0, 1, 1, 1, 1, 0}, // t
-  {1, 0, 1, 0, 0, 1}, // u
-  {1, 1, 1, 0, 0, 1}, // v
-  {0, 1, 0, 1, 1, 1}, // w
-  {1, 0, 1, 1, 0, 1}, // x
-  {1, 0, 1, 1, 1, 1}, // y
-  {1, 0, 1, 0, 1, 1}  // z
-};
+- [ ] Add support for punctuation and special characters
+- [ ] Add Grade 2 Braille contractions
+- [ ] Wireless communication (Bluetooth) to remove USB dependency
+- [ ] Mobile app companion (Android/iOS)
+- [ ] Add physical enclosure / 3D printed housing
+- [ ] Word-level TTS (buffer characters and speak full words)
 
-void setup() {
-  for (int i = 0; i < 6; i++) {
-    pinMode(ledPins[i], OUTPUT);
-  }
-  Serial.begin(9600);
-}
+---
 
-void loop() {
-  if (Serial.available()) {
-    char c = tolower(Serial.read());
-    if (c >= 'a' && c <= 'z') {
-      const bool* braillePattern = brailleAlphabet[c - 'a'];
-      for (int i = 0; i < 6; i++) {
-        digitalWrite(ledPins[i], braillePattern[i] ? HIGH : LOW);
-      }
-      delay(1000);
-      for (int i = 0; i < 6; i++) {
-        digitalWrite(ledPins[i], LOW);
-      }
-      delay(1000);
-    }
-  }
-}
+## 👥 Contributors
 
+| Name | Role |
+|Dheeraj | Python app|
+| Piyush Lahot|  Arduino firmware |
+| Ritesh  | Hardware design |
 
+---
+
+## 📄 License
+
+This project is open source under the [MIT License](LICENSE).
+
+---
+
+## 🙏 Acknowledgements
+
+- Inspired by the need for affordable Braille learning tools for visually impaired students
+- Standard Braille encoding reference: [Braille Authority](https://www.brailleauthority.org/)
+- Built as part of an assistive technology initiative
+
+---
+
+> *"The only disability in life is a bad attitude."* — Scott Hamilton
 
